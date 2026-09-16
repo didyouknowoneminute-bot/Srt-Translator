@@ -1,9 +1,10 @@
 <resources>
-    <style name="Theme.SrtTranslator" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.SrtTranslator" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#6750A4</item>
-        <item name="android:navigationBarColor">#FFFBFE</item>
-        <item name="android:statusBarColor">#FFFBFE</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:colorAccent">#D0BCFF</item>
+        <item name="android:navigationBarColor">#141218</item>
+        <item name="android:statusBarColor">#141218</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">#141218</item>
     </style>
 </resources>
