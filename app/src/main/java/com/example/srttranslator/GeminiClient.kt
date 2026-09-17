@@ -9,7 +9,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 class GeminiClient {
-    suspend fun translate(apiKey: String, model: String, language: String, part: List<Subtitle>, limiter: RequestLimiter): List<Subtitle> = withContext(Dispatchers.IO) {
+    suspend fun translate(apiKey: String, model: String, language: String, part: List<Subtitle>, limiter: RequestLimiter, onRetry: (retry: Int, waitSeconds: Int) -> Unit = { _, _ -> }): List<Subtitle> = withContext(Dispatchers.IO) {
         val payload = JSONArray().apply { part.forEachIndexed { i, s -> put(JSONObject().put("i", i).put("text", s.text)) } }
         val prompt = "Translate each subtitle text into natural $language. Return ONLY a JSON array of exactly ${part.size} strings in the same order. Preserve names, tone and subtitle brevity. Do not add numbering, timestamps or markdown.\n" + payload
         val body = JSONObject().put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt))))).toString()
@@ -20,7 +20,7 @@ class GeminiClient {
             if (result.code in 200..299) return@withContext parse(result.body, part)
             lastError = "Gemini HTTP ${result.code}: ${result.body}"
             if (result.code != 503) error(lastError)
-            if (attempt < 2) delay(if (attempt == 0) 5_000L else 10_000L)
+            if (attempt < 2) { val waitMs = if (attempt == 0) 5_000L else 10_000L; onRetry(attempt + 2, (waitMs / 1000).toInt()); delay(waitMs) }
         }
         error("$lastError (retried 3 times)")
     }
