@@ -18,8 +18,11 @@ class GeminiClient {
         conn.outputStream.use { it.write(body.toByteArray()) }
         val response = (if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream).bufferedReader().use { it.readText() }
         if (conn.responseCode !in 200..299) error("Gemini HTTP ${conn.responseCode}: $response")
-        val text = JSONObject(response).getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text").trim().removePrefix("```").removePrefix("json").removeSuffix("```").trim()
-        val arr = JSONArray(text); require(arr.length() == part.size) { "Expected ${part.size} translations, got ${arr.length()}" }
+        val root = JSONObject(response)
+        val text = root.optJSONArray("candidates")?.optJSONObject(0)?.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)?.optString("text")
+            ?: error(root.optJSONObject("error")?.optString("message") ?: "Gemini returned no text")
+        val clean = text.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+        val arr = JSONArray(clean); require(arr.length() == part.size) { "Gemini returned ${arr.length()} subtitles; expected ${part.size}. Please retry." }
         part.mapIndexed { i, s -> s.copy(text = arr.getString(i)) }
     }
 }
