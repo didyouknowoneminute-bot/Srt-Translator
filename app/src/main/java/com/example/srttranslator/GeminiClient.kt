@@ -9,22 +9,24 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 class GeminiClient {
-    suspend fun translate(apiKey: String, model: String, language: String, part: List<Subtitle>, limiter: RequestLimiter, onRetry: (retry: Int, waitSeconds: Int) -> Unit = { _, _ -> }): List<Subtitle> = withContext(Dispatchers.IO) {
+    suspend fun translate(apiKey: String, model: String, language: String, part: List<Subtitle>, limiter: RequestLimiter, onRetry: (retry: Int, waitSeconds: Int, reason: String) -> Unit = { _, _, _ -> }): List<Subtitle> = withContext(Dispatchers.IO) {
         val payload = JSONArray().apply { part.forEachIndexed { i, s -> put(JSONObject().put("i", i).put("text", s.text)) } }
-        val prompt = "Translate each subtitle text into natural $language. Return ONLY a JSON array of exactly ${part.size} strings in the same order. Preserve names, tone and subtitle brevity. Do not add numbering, timestamps or markdown.\n" + payload
+        val prompt = "Translate each input subtitle independently into natural $language. Return ONLY a JSON array of exactly ${part.size} strings, one output for every input object, in the exact input order. Never merge, omit, split, or invent items. Preserve names, tone and subtitle brevity. Do not add numbering, timestamps, explanations, or markdown. Count the input objects before answering and verify the output array length is exactly ${part.size}.\n" + payload
         val body = JSONObject().put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt))))).toString()
         var lastError = ""
         val maxAttempts = 14 // initial request + 3 retries + 10 additional retries
         for (attempt in 0 until maxAttempts) {
             limiter.awaitSlot()
             val result = request(apiKey, model, body)
-            if (result.code in 200..299) return@withContext parse(result.body, part)
-            lastError = "Gemini HTTP ${result.code}: ${result.body}"
-            if (result.code != 503) error(lastError)
+            if (result.code in 200..299) {
+                try { return@withContext parse(result.body, part) }
+                catch (e: Exception) { lastError = "Invalid subtitle count/JSON: ${e.message}" }
+            }
+            else { lastError = "Gemini HTTP ${result.code}: ${result.body}"; if (result.code != 503) error(lastError) }
             if (attempt < maxAttempts - 1) {
                 val retryNumber = attempt + 1
                 val waitMs = when (retryNumber) { 1 -> 5_000L; 2 -> 10_000L; else -> 15_000L }
-                onRetry(retryNumber, (waitMs / 1000).toInt())
+                onRetry(retryNumber, (waitMs / 1000).toInt(), lastError)
                 delay(waitMs)
             }
         }
