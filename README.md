@@ -32,4 +32,4 @@ The app does not hard-code an API key. The user enters their own key in Settings
 
 ## Notes
 
-Gemini model names are kept in the Settings dropdown so they can be updated in code as Google's API catalog changes. The default is `gemini-3.1-pro-preview`.
+Gemini model names are kept in the Settings dropdown so they can be updated in code as Google's API catalog changes. The available choices are `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, and `gemini-3.1-flash-lite`; the default is `gemini-3.5-flash`.
