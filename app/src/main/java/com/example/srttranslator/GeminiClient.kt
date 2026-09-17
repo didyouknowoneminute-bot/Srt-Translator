@@ -16,7 +16,7 @@ class GeminiClient {
         var lastError = ""
         val maxAttempts = 14 // initial request + 3 retries + 10 additional retries
         for (attempt in 0 until maxAttempts) {
-            limiter.awaitSlot()
+            limiter.awaitSlot(isInitialRequest = attempt == 0)
             val result = request(apiKey, model, body)
             if (result.code in 200..299) {
                 try { return@withContext parse(result.body, part) }
