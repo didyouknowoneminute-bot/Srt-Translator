@@ -14,15 +14,21 @@ class GeminiClient {
         val prompt = "Translate each subtitle text into natural $language. Return ONLY a JSON array of exactly ${part.size} strings in the same order. Preserve names, tone and subtitle brevity. Do not add numbering, timestamps or markdown.\n" + payload
         val body = JSONObject().put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt))))).toString()
         var lastError = ""
-        for (attempt in 0 until 3) {
+        val maxAttempts = 14 // initial request + 3 retries + 10 additional retries
+        for (attempt in 0 until maxAttempts) {
             limiter.awaitSlot()
             val result = request(apiKey, model, body)
             if (result.code in 200..299) return@withContext parse(result.body, part)
             lastError = "Gemini HTTP ${result.code}: ${result.body}"
             if (result.code != 503) error(lastError)
-            if (attempt < 2) { val waitMs = if (attempt == 0) 5_000L else 10_000L; onRetry(attempt + 2, (waitMs / 1000).toInt()); delay(waitMs) }
+            if (attempt < maxAttempts - 1) {
+                val retryNumber = attempt + 1
+                val waitMs = when (retryNumber) { 1 -> 5_000L; 2 -> 10_000L; else -> 15_000L }
+                onRetry(retryNumber, (waitMs / 1000).toInt())
+                delay(waitMs)
+            }
         }
-        error("$lastError (retried 3 times)")
+        error("$lastError (retried 13 times: 3 initial retries + 10 additional retries)")
     }
 
     private fun request(apiKey: String, model: String, body: String): HttpResult {
